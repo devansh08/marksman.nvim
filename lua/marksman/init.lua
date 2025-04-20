@@ -62,10 +62,13 @@ local function addMark()
   end
 end
 
----@param args vim.api.keyset.create_user_command.command_args
+---@param args vim.api.keyset.create_user_command.command_args|nil
 local function removeMark(args)
   ---@type integer
-  local index = tonumber(args.fargs[1]) or 1
+  local index = #marks
+  if args ~= nil then
+    index = tonumber(args.fargs[1]) or 1
+  end
   marks[index] = { marks[index][1], "", -1, -1 }
 end
 
@@ -151,6 +154,7 @@ function M.setup(opts)
   vim.api.nvim_create_user_command("MarksmanRemove", removeMark, {
     nargs = 1,
   })
+  vim.api.nvim_create_user_command("MarksmanRemoveTop", removeMark, {})
   vim.api.nvim_create_user_command("MarksmanList", listMarks, {})
   vim.api.nvim_create_user_command("MarksmanGoto", gotoMark, {
     nargs = 1,
