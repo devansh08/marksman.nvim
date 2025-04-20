@@ -133,6 +133,25 @@ local function nextMark()
   end
 end
 
+---@param cmd string|function
+---@param add_pre boolean
+---@param add_post boolean
+function M.runCmdAndMark(cmd, add_pre, add_post)
+  if add_pre then
+    addMark()
+  end
+
+  if type(cmd) == "function" then
+    cmd()
+  else
+    vim.cmd(cmd)
+  end
+
+  if add_post then
+    addMark()
+  end
+end
+
 ---@alias GotoCmd "edit"|"drop"|"tab-drop"
 
 ---@class MarksmanOpts
