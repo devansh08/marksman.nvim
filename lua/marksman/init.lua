@@ -6,7 +6,7 @@ local M = {}
 ---@type table<integer, integer[]>
 M.marks = {}
 ---@type integer
-M.index = 1
+M.index = 0
 
 --- Value: Buffer ID, Filename + Row/Col, Content
 ---@param output string[][]
@@ -23,7 +23,7 @@ local function pretty_print(output)
   for i, row in ipairs(output) do
     ---@type string
     local pref = "  "
-    if M.index - 1 == i then
+    if M.index == i then
       pref = "> "
     end
 
@@ -32,8 +32,8 @@ local function pretty_print(output)
 end
 
 function M.addMark()
-  M.marks[M.index] = { vim.api.nvim_get_current_buf(), vim.fn.line("."), vim.fn.col(".") }
   M.index = M.index + 1
+  M.marks[M.index] = { vim.api.nvim_get_current_buf(), vim.fn.line("."), vim.fn.col(".") }
 end
 
 ---@param args vim.api.keyset.create_user_command.command_args
