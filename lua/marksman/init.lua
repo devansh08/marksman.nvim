@@ -70,6 +70,11 @@ local function removeMark(args)
 end
 
 local function listMarks()
+  if #marks == 0 then
+    print("[Marksman] Marks stack is empty")
+    return
+  end
+
   ---@type string[][]
   local output = {}
 
