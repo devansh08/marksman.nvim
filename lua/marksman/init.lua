@@ -1,9 +1,19 @@
 local M = {}
 
+---@type MarksmanOpts|{}
+M.opts = {}
+
+---@type table<GotoCmd, string>
+M.goto_cmd_map = {
+  ["edit"] = "e",
+  ["drop"] = "drop",
+  ["tab-drop"] = "tab drop",
+}
+
 --- Marks Map
 --- Key: Mark index
---- Value: [ Buffer ID, Line number, Column number ]
----@type table<integer, integer[]>
+--- Value: Buffer ID, File name, Line number, Column number
+---@type table<integer, (string|integer)[]>
 M.marks = {}
 ---@type integer
 M.index = 0
@@ -31,16 +41,24 @@ local function pretty_print(output)
   end
 end
 
+---@param mark (string|integer)[]
+local function gotoBuf(mark)
+  vim.cmd(M.goto_cmd_map[M.opts.goto_cmd] .. " " .. tostring(mark[2]))
+  vim.api.nvim_win_set_cursor(0, { tonumber(mark[3]) or 1, mark[4] - 1 or 0 })
+end
+
 function M.addMark()
   M.index = M.index + 1
-  M.marks[M.index] = { vim.api.nvim_get_current_buf(), vim.fn.line("."), vim.fn.col(".") }
+  ---@type integer
+  local id = vim.api.nvim_get_current_buf()
+  M.marks[M.index] = { id, vim.api.nvim_buf_get_name(id), vim.fn.line("."), vim.fn.col(".") }
 end
 
 ---@param args vim.api.keyset.create_user_command.command_args
 function M.removeMark(args)
   ---@type integer
   local index = tonumber(args.fargs[1]) or 1
-  M.marks[index] = { M.marks[index][1], -1, -1 }
+  M.marks[index] = { M.marks[index][1], "", -1, -1 }
 end
 
 function M.listMarks()
@@ -49,16 +67,19 @@ function M.listMarks()
 
   ---@type string
   local cwd_pattern = vim.uv.cwd():gsub("([%.%+%-%*%?%[%]%^%$%(%)%|])", "%%%1")
-  for k, v in ipairs(M.marks) do
-    if v[2] == -1 and v[3] == -1 then
-      table.insert(output, { tostring(k), "", "" })
+  for index, val in ipairs(M.marks) do
+    ---@type integer, string, integer, integer
+    local bufnr, name, row, col =
+      tonumber(val[1]) or -1, tostring(val[2]), tonumber(val[3]) or -1, tonumber(val[4]) or -1
+    if name == "" and row == -1 and col == -1 then
+      table.insert(output, { tostring(index), "", "" })
     else
       ---@type string
-      local filename = vim.api.nvim_buf_get_name(v[1]):gsub(cwd_pattern .. "/", "")
+      local filename = name:gsub(cwd_pattern .. "/", "")
       table.insert(output, {
-        tostring(k),
-        filename .. ":" .. v[2] .. ":" .. v[3],
-        vim.api.nvim_buf_get_lines(v[1], v[2] - 1, v[2], false)[1],
+        tostring(index),
+        filename .. ":" .. row .. ":" .. col,
+        vim.api.nvim_buf_get_lines(bufnr, row - 1, row, false)[1]:match("^%s*(.-)%s*$"),
       })
     end
   end
@@ -68,12 +89,61 @@ function M.listMarks()
   end
 end
 
-function M.setup()
+---@param args vim.api.keyset.create_user_command.command_args
+function M.gotoMark(args)
+  ---@type integer|nil
+  local index = tonumber(args.fargs[1])
+  if index and index <= #M.marks then
+    M.index = index
+    gotoBuf(M.marks[index])
+  end
+end
+
+function M.prevMark()
+  if M.index > 1 then
+    M.index = M.index - 1
+    gotoBuf(M.marks[M.index])
+  else
+    print("[Marksman] Already at the top of Marksman stack")
+  end
+end
+
+function M.nextMark()
+  if M.index < #M.marks then
+    M.index = M.index + 1
+    gotoBuf(M.marks[M.index])
+  else
+    print("[Marksman] Already at the bottom of Marksman stack")
+  end
+end
+
+---@alias GotoCmd "edit"|"drop"|"tab-drop"
+
+---@class MarksmanOpts
+--- Define the command to open the file [default = "drop"]
+--- - `edit`: will open the file in the current buffer (`:help :edit`)
+--- - `drop`: will switch to an existing buffer which has the file already open;
+---         else it will open the file in the current buffer (`:help :drop`)
+--- - `tab-drop`: will switch to an existing tab page which has the file already open;
+---             else it will open the file in the current tab-page (`:help :drop`)
+---@field goto_cmd GotoCmd
+
+---@param opts MarksmanOpts
+function M.setup(opts)
+  M.opts = {
+    goto_cmd = opts.goto_cmd or "drop",
+  }
+
   vim.api.nvim_create_user_command("MarksmanAdd", M.addMark, {})
   vim.api.nvim_create_user_command("MarksmanRemove", M.removeMark, {
     nargs = 1,
   })
   vim.api.nvim_create_user_command("MarksmanList", M.listMarks, {})
+  vim.api.nvim_create_user_command("MarksmanGoto", M.gotoMark, {
+    nargs = 1,
+  })
+  vim.api.nvim_create_user_command("MarksmanPrev", M.prevMark, {})
+  vim.api.nvim_create_user_command("MarksmanNext", M.nextMark, {})
 end
 
 return M
