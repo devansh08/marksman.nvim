@@ -48,10 +48,18 @@ local function gotoBuf(mark)
 end
 
 local function addMark()
-  top = top + 1
   ---@type integer
   local id = vim.api.nvim_get_current_buf()
-  marks[top] = { id, vim.api.nvim_buf_get_name(id), vim.fn.line("."), vim.fn.col(".") }
+  ---@type string, integer, integer
+  local filename, row, col = vim.api.nvim_buf_get_name(id), vim.fn.line("."), vim.fn.col(".")
+
+  -- Check the previous entry in marks stack is different
+  ---@type (string|integer)[]
+  local mark = marks[top]
+  if mark == nil or not (mark[1] == id and mark[2] == filename and mark[3] == row and mark[4] == col) then
+    top = top + 1
+    marks[top] = { id, filename, row, col }
+  end
 end
 
 ---@param args vim.api.keyset.create_user_command.command_args
