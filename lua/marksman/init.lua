@@ -114,8 +114,8 @@ end
 
 local function prevMark()
   if top > 1 then
-    top = top - 1
     gotoBuf(marks[top])
+    top = top - 1
   else
     print("[Marksman] Already at the top of Marksman stack")
   end
